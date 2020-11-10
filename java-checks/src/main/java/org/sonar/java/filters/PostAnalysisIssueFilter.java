@@ -21,23 +21,21 @@ package org.sonar.java.filters;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import org.sonar.api.rule.RuleKey;
-import org.sonar.java.AnalyzerMessage;
+import java.util.function.Supplier;
+import org.sonar.api.scan.issue.filter.FilterableIssue;
+import org.sonar.api.scan.issue.filter.IssueFilterChain;
 import org.sonar.plugins.java.api.JavaFileScanner;
 import org.sonar.plugins.java.api.JavaFileScannerContext;
-import org.sonarsource.api.sonarlint.SonarLintSide;
-import org.sonar.api.scanner.ScannerSide;
 
-@ScannerSide
-@SonarLintSide
 public class PostAnalysisIssueFilter implements JavaFileScanner, SonarJavaIssueFilter {
 
-  private static final Iterable<JavaIssueFilter> DEFAULT_ISSUE_FILTERS = ImmutableList.<JavaIssueFilter>of(
+  private static final Supplier<Iterable<JavaIssueFilter>> DEFAULT_ISSUE_FILTERS = () -> ImmutableList.<JavaIssueFilter>of(
     new EclipseI18NFilter(),
     new LombokFilter(),
     new GoogleAutoFilter(),
     new SuppressWarningFilter(),
     new GeneratedCodeFilter());
+
   private Iterable<JavaIssueFilter> issueFilers;
 
   @VisibleForTesting
@@ -48,19 +46,19 @@ public class PostAnalysisIssueFilter implements JavaFileScanner, SonarJavaIssueF
   @VisibleForTesting
   Iterable<JavaIssueFilter> getIssueFilters() {
     if (issueFilers == null) {
-      issueFilers = DEFAULT_ISSUE_FILTERS;
+      issueFilers = DEFAULT_ISSUE_FILTERS.get();
     }
     return issueFilers;
   }
 
   @Override
-  public boolean accept(RuleKey ruleKey, AnalyzerMessage analyzerMessage) {
+  public boolean accept(FilterableIssue issue, IssueFilterChain chain) {
     for (JavaIssueFilter javaIssueFilter : getIssueFilters()) {
-      if (!javaIssueFilter.accept(ruleKey, analyzerMessage)) {
+      if (!javaIssueFilter.accept(issue)) {
         return false;
       }
     }
-    return true;
+    return chain.accept(issue);
   }
 
   @Override
